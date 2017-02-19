@@ -24,6 +24,8 @@ gulp.task('copy', function() {
 		.pipe(gulp.dest('./dist/js/jquery-ui-custom'));
 	gulp.src('./js/jquery.animateSprite.js')
 		.pipe(gulp.dest('./dist/js/'));
+    gulp.src('./js/iot-bundle.js')
+  		.pipe(gulp.dest('./dist/js/'));
 	gulp.src('index.html')
 		.pipe(gulp.dest('./dist/'));
 });
