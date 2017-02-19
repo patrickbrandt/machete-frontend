@@ -1,0 +1,25 @@
+{
+  "name": "fuzzy-ass",
+  "version": "0.0.0",
+  "homepage": "https://github.com/FuzzyWobble/ass",
+  "authors": [
+    "banditbrandit"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#^1.0.0",
+    "iron-a11y-keys-behavior": "polymerelements/iron-a11y-keys-behavior#^1.0.0",
+    "iron-behaviors": "PolymerElements/iron-behaviors#~1.0.7",
+    "iron-ajax": "PolymerElements/iron-ajax#^1.4.3"
+  },
+  "resolutions": {
+    "iron-a11y-keys-behavior": "^1.0.0"
+  }
+}

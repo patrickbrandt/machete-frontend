@@ -1,0 +1,173 @@
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" href="../bower_components/iron-a11y-keys-behavior/iron-a11y-keys-behavior.html">
+<link rel="import" href="../bower_components/iron-ajax/iron-ajax.html">
+<script src="../js/iot-bundle.js"></script>
+
+<dom-module id="audio-container">
+    <style>
+        .header {
+            width: 100%;
+            height: 50px;
+            margin-left: 10px;
+        }
+        #vineUrl {
+            width: 175px;
+        }
+        .vineIcon {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #464646;
+            background-image: url(https://v.cdn.vine.co/w/f621be7e-assets/images/shr_icons/embed_icon.svg);
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            background-position: center center;
+            margin: 0 10px -10px 0;
+        }
+    </style>
+    <template>
+        <iron-ajax
+            auto
+            url="https://j6fj67ehy8.execute-api.us-east-1.amazonaws.com/dev/auth"
+            method="POST"
+            handle-as="json"
+            on-response="handleAuth">
+        </iron-ajax>
+        <div class="header">
+            <div class="vineIcon"></div><input id="vineUrl" type="text" placeholder="Vine embed code"/>
+            <button on-click="ripVine" disabled$="{{processing_vine}}">Rip Vine</button>
+            <span id="serviceOutput">{{processing_state}}</span>
+        </div>
+        <content></content>
+    </template>
+</dom-module>
+<script>
+
+Polymer({
+    is: "audio-container",
+    behaviors: [
+      Polymer.IronA11yKeysBehavior
+    ],
+    properties: {
+        keyEventTarget: {
+            type: Object,
+            value: function() {
+                return document.body;
+            }
+        },
+        iot: {
+            type: Object,
+            value: function() {
+              return window.IoT;
+            }
+        },
+        room_id: String,
+        processing_vine: {
+            type: Boolean,
+            value: false
+        },
+        processing_state: String,
+        keys: {
+            type: String,
+            value: 'abcdefghijklmnopqrstuvwxyz'
+        },
+        vineTopic: String,
+        progressTopic: String
+    },
+  	_keyPressed: function(event) {
+  		//var sprite = Polymer.dom(this).querySelector('audio-sprite[key="' + event.detail.key + '"]');
+          var sprites = document.querySelectorAll('audio-sprite[key="' + event.detail.key + '"]');
+          for (var i = 0; i < sprites.length; i++) {
+  			sprites[i].play(event);
+  		}
+  	},
+    ripVine: function() {
+        if (this.$.vineUrl.value == '') {
+            return;
+        }
+        this.processing_vine = true;
+        this.processing_state = '';
+        this.iot.send(this.vineTopic, JSON.stringify({ vineUrl: this.$.vineUrl.value, progressTopic: this.progressTopic }));
+    },
+    ready: function() {
+        console.log('https://vine.co/v/eD7EM9XZpeu');
+        this.addOwnKeyBinding('a b c d e f g h i j k l m n o p q r s t u v w x y z', '_keyPressed');
+
+        /*
+        var self = this;
+        this.socket = io('http://52.3.240.138');
+        this.socket.on('room_joined', function(msg) {
+            console.log('session joined: ' + msg.room_id);
+            self.room_id = msg.room_id;
+        });
+
+        this.socket.on('update', function(msg) {
+            console.log('update received: ' + msg.message);
+            self.processing_state = msg.message;
+            if (msg.message === 'done') {
+                self.processing_vine = false;
+                self.$.vineUrl.value = '';
+                var key = self.keys.charAt(0);
+                self.keys = self.keys.slice(1, self.keys.length - 1);
+                var sprite = document.createElement('audio-sprite');
+                //console.log('sprite element was created');
+                sprite.setAttribute('name', msg.data.id);
+                sprite.setAttribute('size', msg.data.size);
+                sprite.setAttribute('num_frames', msg.data.frames);
+                sprite.setAttribute('key', key);
+                sprite.setAttribute('sprite_url', msg.data.sprite_url);
+                sprite.setAttribute('audio_url', msg.data.audio_url);
+                document.querySelectorAll('audio-container')[0].appendChild(sprite);
+                //Polymer.dom(this).appendChild(sprite);
+            }
+        });
+        */
+    },
+    handleAuth: function(data) {
+      var response = data.detail.response;
+      this.iot.onMessage = this.handleMessage.bind(this);
+      this.iot.connect(response.iotEndpoint,
+                    response.region,
+                    response.accessKey,
+                    response.secretKey,
+                    response.sessionToken);
+
+      this.vineTopic = response.vineTopic;
+      this.progressTopic = response.progressTopic;
+      this.iot.subscribe(this.progressTopic);
+    },
+    handleMessage: function(topic, message) {
+      //NOTE: messages are coming from IoT backend as a uint array - need to be decoded
+      var tmp = '';
+      for (var i = 0; i < message.length; i++) {
+          tmp += String.fromCharCode(message[i]);
+      }
+      console.log(tmp);
+      var msg = JSON.parse(tmp);
+      this.processing_state = msg.status;
+      if (msg.status === 'done') {
+        console.log('done');
+        this.processing_vine = false;
+        this.processing_state = '';
+        this.$.vineUrl.value = '';
+        this.renderSprite(msg);
+      }
+    },
+    renderSprite: function(msg) {
+      var key = this.keys.charAt(0);
+      this.keys = this.keys.slice(1, this.keys.length - 1);
+      var sprite = document.createElement('audio-sprite');
+      //console.log('sprite element was created');
+      sprite.setAttribute('name', msg.data.id);
+      sprite.setAttribute('size', msg.data.size);
+      sprite.setAttribute('num_frames', msg.data.frames);
+      sprite.setAttribute('key', key);
+      sprite.setAttribute('sprite_url', msg.data.sprite_url);
+      sprite.setAttribute('audio_url', msg.data.audio_url);
+      document.querySelectorAll('audio-container')[0].appendChild(sprite);
+      //Polymer.dom(this).appendChild(sprite);
+    }
+
+});
+</script>

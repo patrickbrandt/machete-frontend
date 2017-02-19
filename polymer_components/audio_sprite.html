@@ -1,0 +1,435 @@
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<script src="../js/jquery-1.11.1.min.js"></script>
+<script src="../js/jquery-ui-custom/jquery-ui.js"></script>
+<script src="../js/jquery.animateSprite.js"></script>
+
+<dom-module id="audio-sprite">
+    <style>
+        :host {
+            display: block;
+            position: relative;
+            font-family: verdana;
+            background: rgba(0,0,0,0.5) url('../img/ajax-loader.gif') center/20px no-repeat;
+        }
+        .polymer-test {
+            height: 100%;
+            width: 100%;
+            /*these rules prevent the "blue select" color from showing up when rapidly clicking a sprite*/
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        #direction {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 18px;
+            height: 18px;
+            z-index: 100;
+            padding: 2px 2px 2px 2px;
+            background: url("../img/dir_back.png"); /* pre-load "back" image*/
+            background: rgba(0,0,0,0.5) url("../img/dir_forward.png") center/14px no-repeat;
+        }
+        #speed {
+            z-index: 100;
+        }
+        #speed div {
+            height: 14px;
+            color: #fff;
+            background-color: rgba(0,0,0,0.5);
+            float:left;
+            padding: 4px;
+        }
+        #speed div:last-child {
+            font-size: 13px;
+        }
+        #speed-down {
+            width: 14px;
+            background: url('../img/down_arr.png') center/10px no-repeat;
+        }
+        #speed-up {
+            width: 14px;
+            background: url('../img/up_arr.png') center/10px no-repeat;
+        }
+        #key {
+            padding: 4px;
+            position: absolute;
+            background-color: rgba(0,0,0,0.5);
+            color: #fff;
+            bottom: 0;
+            left: 0;
+        }
+        
+        .ass_slider_container{
+        position:absolute; 
+        z-index:11;
+        bottom:3%; 
+        left: 12%;
+        width:78%; 
+        height:20px;  
+        /*border: thin solid #f00;*/
+        }
+        .ass_slider{
+        cursor:ew-resize;
+        }
+        .ass_bar_black{
+        position:absolute; z-index:1;
+        width:100%; height:6px;
+        top:7px; left:0px;
+        background-color:rgba(255,255,255,0.4);
+        /*border:thin solid #999;*/ 
+        }
+        .ass_bar_white{
+        position:absolute; z-index:2;
+        width:100%; height:6px;
+        top:7px; left:0px;
+        background-color:rgba(255,255,255,0.8);
+        /*border:thin solid #999;*/ 
+        }
+        .ass_slider_left{
+        position:absolute; 
+        z-index:4; 
+        top:0px;left:0px;
+        width:4px; height:18px; 
+        background-color: #ccc;
+        border:thin solid #666;
+        border-top-left-radius:3px;
+        border-bottom-left-radius:3px;
+        }
+        .ass_slider_right{
+        position:absolute; z-index:4; 
+        top:0px;right:0px;
+        width:4px; height:18px; 
+        background-color: #ccc;
+        border:thin solid #666;
+        border-top-right-radius:3px;
+        border-bottom-right-radius:3px;
+        }
+        .ass_dot{
+        height:8px; width:2px;
+        background-color:#333;
+        position:absolute; z-index: 3;
+        top:6px; left:0px;
+        }
+    </style>
+  <template>    
+    <div class="polymer-test" id="{{name}}" on-down="play">        
+        <div id="speed">
+            <div id="speed-down" on-down="changeSpeed"></div>
+            <div id="speed-up" on-down="changeSpeed"></div>
+            <div>{{speed}}</div>
+        </div>
+        <div id="direction" on-down="changeDirection"></div>
+        <div id="key">{{key}}</div>
+        <div class="ass_slider_container" on-down="doNothing">
+            <div class="ass_rel">
+                <div class="ass_bar_black"></div>
+                <div class="ass_bar_white"></div>
+                <div class="ass_slider ass_slider_left" id="L"></div>
+                <div class="ass_slider ass_slider_right" id="R"></div>
+                <div class="ass_dot"></div>
+            </div>
+        </div>    
+    </div>
+  </template>  
+</dom-module>
+<script>
+    (function(){
+        //TODO: convert this whole audio playback mechanism into a web-component       
+        // Fix up prefixing
+        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!window.AudioContext) {
+            alert('this browser does not support web audio'); //TODO: figure out a more elegant way to display this, even if it only applies to IE users
+            return;
+        }
+        var _sharedAudioContext = new AudioContext();
+        var _loadAudioPlayer = function(sprite) {
+            sprite.context = _sharedAudioContext;
+            var request = new XMLHttpRequest();
+            request.open('GET', sprite.audio_url, true);
+            request.responseType = 'arraybuffer';
+
+            // Decode asynchronously
+            request.onload = function() {
+                sprite.context.decodeAudioData(request.response, function(buffer) {
+                    sprite.audioPlayer = audio(sprite.context, buffer);
+                    sprite._onAudioLoad();
+                }, function(e) { console.log("error loading audio: ", e)});
+            }
+            request.send();
+        }
+
+        var audio = function(context, buffer) {
+
+            var _initSource = function() {
+                var source = context.createBufferSource();
+                source.buffer = buffer;
+
+                var compressor = context.createDynamicsCompressor();
+                compressor.threshold.value = -45;
+                compressor.knee.value = 40;
+                compressor.ratio.value = 50;
+                compressor.reduction.value = -20;
+                compressor.attack.value = 0;
+                compressor.release.value = 0.25;
+
+                var volume = context.createGain();
+                volume.gain.value = .8;
+
+                source.connect(compressor);
+                compressor.connect(volume);
+                volume.connect(context.destination);
+                return source;
+            }
+
+            var _hasPlayed = false;
+
+            var _options = {
+                reverse: false,
+                rate: 1
+            }
+
+            return {
+                source: _initSource(),
+                reverse: function() {
+                    _options.reverse = !_options.reverse;
+                    for (var i = 0; i < this.source.buffer.numberOfChannels; i++) {
+                        Array.prototype.reverse.call(this.source.buffer.getChannelData(i));                                            
+                    }
+                    return this;                    
+                },
+                changeRate: function(rate) {
+                    _options.rate = rate;                    
+                    return this;
+                },
+                play: function(start, stop) {                    
+
+                    //NOTE: web audio API throws an error if you call stop on a buffer source before start has been called
+                    //so, this is basically a work-around to get the instant punch-in on audio for rapid play clicks 
+                    if (_hasPlayed) {
+                        this.source.stop(0); //the 0 argument is passed in to accommodate safari                        
+                    }
+
+                    _hasPlayed = true;
+                    this.source = _initSource();                         
+                    this.source.playbackRate.value = _options.rate;
+                    var offset = start || 0;
+                    var duration = stop || this.source.buffer.duration
+                    this.source.start(0, offset, duration - offset);
+                }
+            }
+        }
+
+        Polymer({
+            is: "audio-sprite",
+            properties: {
+                name: {
+                    type: String
+                },
+                uid: String,
+                sprite_url: String,
+                audio_url: String,
+                num_frames: {
+                    type: Number,
+                    value: 0
+                },
+                frame_rate: {
+                    type: Number,
+                    value: 30
+                },
+                size: {
+                    type: Number,
+                    value: 0
+                },
+                directory: {
+                    type: String,
+                    value: "local_files/"
+                },
+                resizable: Boolean,
+                default_speed: {
+                    type: Number,
+                    value: 1
+                },
+                debug: {
+                    type: Boolean,
+                    value: false
+                },
+                forwards: {
+                    type: Boolean,
+                    value: true
+                },
+                speed: {
+                    type: Number,
+                    value: 1
+                },
+                video_start: Number,
+                video_stop: Number,
+                audio_start: Number,
+                audio_stop: Number,
+                offsets: {
+                    type: Object,
+                    value: function() { 
+                        return {
+                            forward: {
+                                start: null,
+                                stop: null
+                            },
+                            reverse: {
+                                start: null,
+                                stop: null
+                            }
+                        }; 
+                    }
+                }
+            },
+            created: function() {
+                console.log('element created');
+            },
+            ready: function() {
+                console.log('element ready');
+            },
+            attached: function(){
+                //NOTE to polymer developers: would be great include template tokens in <style> section so that I wouldn't need to do this -->
+                this.style.height = this.size + "px";
+                this.style.width = this.size + "px";
+
+                //console.log('this.name in attached()', this.name);
+
+                //init audio
+                _loadAudioPlayer(this);                                
+            },
+            play: function(event) {
+                event.stopPropagation();                
+                this.audioPlayer.play(this.audio_start, this.audio_stop);
+                
+                $(this).animateSprite(this._spriteSettings())
+                    .animateSprite('fps', this.frame_rate)
+                    .animateSprite('forwards', this.forwards)
+                    .animateSprite('setIn', this._spriteSettings().startAt)
+                    .animateSprite('setOut', this._spriteSettings().stopAt)
+                    .animateSprite('restart');
+
+            },
+            changeDirection: function(event) {
+                event.stopPropagation();
+                this.audioPlayer.reverse();
+                this.forwards = !this.forwards;
+                if (this.forwards) {
+                    this.audio_start = this.offsets.forward.start;
+                    this.audio_stop = this.offsets.forward.stop;
+                } else {
+                    this.audio_start = this.offsets.reverse.start;
+                    this.audio_stop = this.offsets.reverse.stop;
+                }
+
+                this.$.direction.style.backgroundImage = "url('../img/dir_" + (this.forwards ? "forward" : "back") + ".png')"
+            },
+            changeSpeed: function(event) {                
+                event.stopPropagation();
+                var increment = .25;
+                if(event.target.id === 'speed-down' && this.speed > .5) {                    
+                    this.speed -= increment;
+                } else if (event.target.id === 'speed-up' && this.speed < 3) {
+                    this.speed += increment;                    
+                }
+                this.audioPlayer.changeRate(this.speed);
+                this.frame_rate = 30 * this.speed;
+            },
+            doNothing: function(event) {
+                event.stopPropagation();
+            },
+            _onAudioLoad: function () {
+                this.style.background = "url('" + this.sprite_url + "')",
+
+                //init sprite animation
+                this.frames = [];
+                for(var i = 0; i < this.num_frames; i++){
+                    this.frames.push(i);
+                }
+
+                this.video_start = 0;
+                this.video_stop = this.num_frames-1;
+                this.audio_start = 0;
+                this.offsets.forward.start = this.offsets.reverse.start = this.audio_start;                 
+
+                //NOTE: the audio duration doesn't appear to be stopping at 6 seconds
+                //using frame rate as a work-around
+                var audio_duration = this.audio_stop = this.num_frames/this.frame_rate; //this.audioPlayer.source.buffer.duration;
+                this.offsets.forward.stop = this.offsets.reverse.stop = this.audio_stop;                 
+
+                var that = this;
+                $(this).find('.ass_slider').draggable({
+                    axis: "x", 
+                    containment: "parent", 
+                    start: function(event, ui){
+                        event.stopPropagation();
+                        //console.log('start', event, ui);            
+                        //NOTE: not sure if what this does
+                    },
+                    drag: function(event, ui) {
+                        event.stopPropagation();
+                        //NOTE: this scrubs the video
+                        var bar_pos = ui.position.left;
+                        var size_padding = that.size - (that.size * 0.06);
+                        var pct = bar_pos/size_padding;
+                        var show_frame = Math.round((that.num_frames-1) * pct);
+                        var punch = audio_duration * pct;
+                        $(that)
+                            .animateSprite(that._spriteSettings())
+                            .animateSprite('frame', show_frame);
+
+                        if(ui.helper[0].id === "L") {
+                            that.video_start = show_frame;
+                            that.offsets.forward.start = punch;
+                            that.offsets.reverse.stop = audio_duration - punch;
+                            if (that.forwards) {
+                                that.audio_start = that.offsets.forward.start;
+                            } else {
+                                that.audio_stop = that.offsets.reverse.stop;
+                            }
+
+                        } else if(ui.helper[0].id === "R") {
+                            that.video_stop = show_frame;
+                            that.offsets.forward.stop = punch;
+                            that.offsets.reverse.start = audio_duration - punch;
+                            if (that.forwards) {
+                                that.audio_stop = that.offsets.forward.stop;
+                            } else {
+                                that.audio_start = that.offsets.reverse.start;
+                            }
+                        }
+                    },
+                    stop: function(event, ui){
+                        event.stopPropagation();
+                        //console.log('stop', event, ui);
+                        //NOTE: this sets start and stop times
+                    }
+                });
+                //NOTE: the 'draggable' call is setting inline style to "relative" - this fixes that:
+                this.$.L.style.position = 'absolute';
+                this.$.R.style.position = 'absolute';
+            },
+            _spriteSettings: function() {
+                return  {
+                    fps: this.frame_rate, 
+                    totalFrames: this.num_frames,
+                    width: this.size,
+                    height: this.size,
+                    animations: { go: this.frames },
+                    loop: false,
+                    autoplay: false,
+                    startAt: this.forwards ? this.video_start : this.video_stop,
+                    stopAt: this.forwards ? this.video_stop : this.video_start,
+                    debug: this.debug,                  
+                    complete: function(){
+                        if (this.debug) { console.log("Ended Sprite"); }
+                    }
+                }
+            }
+        });
+    })();
+    
+  </script>
