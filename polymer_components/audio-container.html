@@ -51,37 +51,37 @@ Polymer({
     ],
     properties: {
         keyEventTarget: {
-            type: Object,
-            value: function() {
-                return document.body;
-            }
+          type: Object,
+          value: function() {
+              return document.body;
+          }
         },
         iot: {
-            type: Object,
-            value: function() {
-              return window.IoT;
-            }
+          type: Object,
+          value: function() {
+            return window.IoT;
+          }
         },
         room_id: String,
         processing_vine: {
-            type: Boolean,
-            value: false
+          type: Boolean,
+          value: false
         },
         processing_state: String,
         keys: {
-            type: String,
-            value: 'abcdefghijklmnopqrstuvwxyz'
+          type: String,
+          value: 'abcdefghijklmnopqrstuvwxyz'
         },
         vineTopic: String,
         progressTopic: String
     },
-  	_keyPressed: function(event) {
-  		//var sprite = Polymer.dom(this).querySelector('audio-sprite[key="' + event.detail.key + '"]');
-          var sprites = document.querySelectorAll('audio-sprite[key="' + event.detail.key + '"]');
-          for (var i = 0; i < sprites.length; i++) {
-  			sprites[i].play(event);
-  		}
-  	},
+    _keyPressed: function(event) {
+      //var sprite = Polymer.dom(this).querySelector('audio-sprite[key="' + event.detail.key + '"]');
+      var sprites = document.querySelectorAll('audio-sprite[key="' + event.detail.key + '"]');
+      for (var i = 0; i < sprites.length; i++) {
+        sprites[i].play(event);
+      }
+    },
     ripVine: function() {
         if (this.$.vineUrl.value == '') {
             return;
@@ -93,36 +93,6 @@ Polymer({
     ready: function() {
         console.log('https://vine.co/v/eD7EM9XZpeu');
         this.addOwnKeyBinding('a b c d e f g h i j k l m n o p q r s t u v w x y z', '_keyPressed');
-
-        /*
-        var self = this;
-        this.socket = io('http://52.3.240.138');
-        this.socket.on('room_joined', function(msg) {
-            console.log('session joined: ' + msg.room_id);
-            self.room_id = msg.room_id;
-        });
-
-        this.socket.on('update', function(msg) {
-            console.log('update received: ' + msg.message);
-            self.processing_state = msg.message;
-            if (msg.message === 'done') {
-                self.processing_vine = false;
-                self.$.vineUrl.value = '';
-                var key = self.keys.charAt(0);
-                self.keys = self.keys.slice(1, self.keys.length - 1);
-                var sprite = document.createElement('audio-sprite');
-                //console.log('sprite element was created');
-                sprite.setAttribute('name', msg.data.id);
-                sprite.setAttribute('size', msg.data.size);
-                sprite.setAttribute('num_frames', msg.data.frames);
-                sprite.setAttribute('key', key);
-                sprite.setAttribute('sprite_url', msg.data.sprite_url);
-                sprite.setAttribute('audio_url', msg.data.audio_url);
-                document.querySelectorAll('audio-container')[0].appendChild(sprite);
-                //Polymer.dom(this).appendChild(sprite);
-            }
-        });
-        */
     },
     handleAuth: function(data) {
       var response = data.detail.response;
